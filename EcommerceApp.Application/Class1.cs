@@ -1,6 +1,7 @@
-﻿namespace EcommerceApp.Application;
-
-public class Class1
+﻿namespace EcommerceApp.Application
 {
+    public class Class1
+    {
 
+    }
 }

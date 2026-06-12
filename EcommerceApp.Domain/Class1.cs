@@ -1,6 +1,7 @@
-﻿namespace EcommerceApp.Domain;
-
-public class Class1
+﻿namespace EcommerceApp.Domain
 {
+    public class Class1
+    {
 
+    }
 }
