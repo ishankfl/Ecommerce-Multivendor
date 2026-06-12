@@ -6,10 +6,10 @@ namespace EcommerceApp.Domain.Entities.Identity;
 public class UserAddress
 {
     [Key]
-    public int Id { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
 
     [Required]
-    public int UserId { get; set; }
+    public Guid UserId { get; set; }
 
     [Required]
     [MaxLength(255)]

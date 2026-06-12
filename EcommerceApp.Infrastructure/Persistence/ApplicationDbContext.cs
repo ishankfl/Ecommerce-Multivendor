@@ -207,7 +207,7 @@ public class ApplicationDbContext : DbContext
         // In real app, hash this password properly
         var adminUser = new User
         {
-            Id = 1,
+            Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
             FullName = "System Administrator",
             Email = "admin@ecommerce.com",
             PasswordHash = "$2a$11$K8gJqX7XpK8gJqX7XpK8uO3Q5R6sT7uV8wX9yZ0aB1cD2eF3gH4iJ5kL6mN7oP8", // "Admin@123" hashed

@@ -6,10 +6,10 @@ namespace EcommerceApp.Domain.Entities.Identity;
 public class LoginHistory
 {
     [Key]
-    public int Id { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
 
     [Required]
-    public int UserId { get; set; }
+    public Guid UserId { get; set; }
 
     public DateTime LoginTime { get; set; } = DateTime.UtcNow;
 

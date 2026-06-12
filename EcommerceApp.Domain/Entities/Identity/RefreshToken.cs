@@ -6,14 +6,14 @@ namespace EcommerceApp.Domain.Entities.Identity;
 public class RefreshToken
 {
     [Key]
-    public int Id { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
 
     [Required]
     [MaxLength(500)]
     public string Token { get; set; } = string.Empty;
 
     [Required]
-    public int UserId { get; set; }
+    public Guid UserId { get; set; }
 
     [Required]
     public DateTime ExpiryDate { get; set; }
@@ -33,6 +33,6 @@ public class RefreshToken
     public string? ReplacedByToken { get; set; }
 
     // Navigation property
-    [ForeignKey("UserId")]
+    [ForeignKey(nameof(UserId))]
     public virtual User User { get; set; } = null!;
 }
