@@ -1,5 +1,4 @@
-﻿using EcommerceApp.Domain.Entities.Identities;
-using EcommerceApp.Domain.Enums;
+﻿using EcommerceApp.Domain.Enums;
 using System.ComponentModel.DataAnnotations;
 
 namespace EcommerceApp.Domain.Entities.Identity;
