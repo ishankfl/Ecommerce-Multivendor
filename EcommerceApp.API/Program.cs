@@ -8,6 +8,7 @@ using EcommerceApp.Application.Interfaces.Services;
 using EcommerceApp.Application.Services;
 using EcommerceApp.Infrastructure.Persistence;
 using EcommerceApp.Infrastructure.Repositories;
+using EcommerceApp.Infrastructure.Services;
 
 // Build the web application using the provided configuration settings.
 var builder = WebApplication.CreateBuilder(args);
@@ -80,6 +81,7 @@ builder.Services.AddScoped<IUserRepository, UserRepositories>();
 
 // Register business logic layer services.
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // Configure JWT authentication.
 var jwtKey = builder.Configuration["JWT:Secret"] ?? "your-super-secret-key-minimum-32-characters-long-for-jwt-security";
@@ -194,14 +196,14 @@ app.UseAuthorization();
 app.MapControllers();
 
 // Create database and apply pending migrations on startup.
-using (var scope = app.Services.CreateScope())
-{
-    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    if (dbContext.Database.GetPendingMigrations().Any())
-    {
-        dbContext.Database.Migrate();
-    }
-}
+//using (var scope = app.Services.CreateScope())
+//{
+//    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+//    if (dbContext.Database.GetPendingMigrations().Any())
+//    {
+//        dbContext.Database.Migrate();
+//    }
+//}
 
 // Start the web application and begin listening for requests.
 app.Run();

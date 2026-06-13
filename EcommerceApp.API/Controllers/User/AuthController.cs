@@ -1,17 +1,15 @@
-﻿using System;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Security.Claims;
 using EcommerceApp.Application.DTOs.Auth;
 using EcommerceApp.Application.Interfaces.Services;
 
 namespace EcommerceApp.API.Controllers
 {
-    /// <summary>
-    /// Authentication Controller - Handles user authentication endpoints
-    /// </summary>
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/auth")]
+    [EnableRateLimiting("fixed")]
     public class AuthController : ControllerBase
     {
         private readonly IUserService _userService;
@@ -24,263 +22,231 @@ namespace EcommerceApp.API.Controllers
         /// <summary>
         /// Register a new user
         /// </summary>
-        /// <param name="request">Registration details</param>
-        /// <returns>Authentication response with JWT token</returns>
         [HttpPost("register")]
-        public async Task<ActionResult<AuthResponse>> Register([FromBody] RegisterRequest request)
+        public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
             if (!ModelState.IsValid)
-            {
-                return BadRequest(new AuthResponse
-                {
-                    Success = false,
-                    Message = "Invalid request data",
-                    Errors = ModelStateErrors()
-                });
-            }
+                return BadRequest(ModelState);
 
-            var response = await _userService.RegisterAsync(request);
+            var result = await _userService.RegisterAsync(request);
 
-            if (!response.Success)
-            {
-                return BadRequest(response);
-            }
+            if (!result.Success)
+                return BadRequest(result);
 
-            return Ok(response);
+            return Ok(result);
         }
 
         /// <summary>
-        /// Login user and get JWT token
+        /// Login user
         /// </summary>
-        /// <param name="request">Login credentials</param>
-        /// <returns>Authentication response with JWT token</returns>
         [HttpPost("login")]
-        public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request)
+        public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
             if (!ModelState.IsValid)
-            {
-                return BadRequest(new AuthResponse
-                {
-                    Success = false,
-                    Message = "Invalid request data",
-                    Errors = ModelStateErrors()
-                });
-            }
+                return BadRequest(ModelState);
 
-            var response = await _userService.LoginAsync(request);
+            var result = await _userService.LoginAsync(request);
 
-            if (!response.Success)
-            {
-                return Unauthorized(response);
-            }
+            if (!result.Success)
+                return BadRequest(result);
 
-            // Set refresh token in HTTP-only cookie (optional but more secure)
-            SetRefreshTokenCookie(response.RefreshToken);
-
-            return Ok(response);
+            return Ok(result);
         }
 
         /// <summary>
-        /// Refresh JWT token using refresh token
+        /// Verify email address with token
         /// </summary>
-        /// <param name="request">Refresh token request</param>
-        /// <returns>New authentication response</returns>
-        [HttpPost("refresh-token")]
-        public async Task<ActionResult<AuthResponse>> RefreshToken([FromBody] RefreshTokenRequest request)
+        [HttpGet("verify-email")]
+        public async Task<IActionResult> VerifyEmail([FromQuery] string email, [FromQuery] string token)
         {
-            if (string.IsNullOrEmpty(request.RefreshToken))
-            {
-                // Try to get refresh token from cookie
-                var cookieToken = Request.Cookies["refreshToken"];
-                if (!string.IsNullOrEmpty(cookieToken))
-                {
-                    request.RefreshToken = cookieToken;
-                }
-                else
-                {
-                    return BadRequest(new AuthResponse
-                    {
-                        Success = false,
-                        Message = "Refresh token is required"
-                    });
-                }
-            }
+            if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(token))
+                return BadRequest(new { message = "Email and token are required" });
 
-            var response = await _userService.RefreshTokenAsync(request.RefreshToken);
-
-            if (!response.Success)
-            {
-                return Unauthorized(response);
-            }
-
-            // Update refresh token cookie
-            SetRefreshTokenCookie(response.RefreshToken);
-
-            return Ok(response);
-        }
-
-        /// <summary>
-        /// Logout user and invalidate refresh token
-        /// </summary>
-        /// <returns>Logout result</returns>
-        [Authorize]
-        [HttpPost("logout")]
-        public async Task<IActionResult> Logout()
-        {
-            // Get user ID from claims
-            var userIdClaim = User.FindFirst("userId")?.Value;
-            if (string.IsNullOrEmpty(userIdClaim))
-            {
-                return BadRequest(new { message = "User not found" });
-            }
-
-            var userId = Guid.Parse(userIdClaim);
-            var result = await _userService.LogoutAsync(userId);
-
-            // Remove refresh token cookie
-            Response.Cookies.Delete("refreshToken");
+            var result = await _userService.VerifyEmailAsync(email, token);
 
             if (result)
             {
-                return Ok(new { message = "Logged out successfully" });
-            }
-
-            return BadRequest(new { message = "Logout failed" });
-        }
-
-        /// <summary>
-        /// Get current authenticated user information
-        /// </summary>
-        /// <returns>Current user details</returns>
-        [Authorize]
-        [HttpGet("me")]
-        public async Task<ActionResult<AuthResponse>> GetCurrentUser()
-        {
-            var userIdClaim = User.FindFirst("userId")?.Value;
-            if (string.IsNullOrEmpty(userIdClaim))
-            {
-                return Unauthorized(new AuthResponse
+                return Ok(new
                 {
-                    Success = false,
-                    Message = "User not authenticated"
+                    success = true,
+                    message = "Email verified successfully. You can now login."
                 });
             }
 
-            var userId = Guid.Parse(userIdClaim);
-            var user = await _userService.GetUserByIdAsync(userId);
-
-            if (user == null)
+            return BadRequest(new
             {
-                return NotFound(new AuthResponse
-                {
-                    Success = false,
-                    Message = "User not found"
-                });
-            }
-
-            return Ok(new AuthResponse
-            {
-                Success = true,
-                UserId = user.Id,
-                FullName = user.FullName,
-                Email = user.Email,
-                Role = user.Role.ToString(),
-                Phone = user.Phone,
-                IsEmailVerified = user.IsEmailVerified,
-                LastLoginAt = user.LastLoginAt,
-                Message = "User retrieved successfully"
+                success = false,
+                message = "Invalid or expired verification link. Please request a new verification email."
             });
         }
 
         /// <summary>
-        /// Forgot password - send reset token to email
+        /// Resend verification email
         /// </summary>
-        /// <param name="request">Email address</param>
-        /// <returns>Result message</returns>
+        [HttpPost("resend-verification")]
+        public async Task<IActionResult> ResendVerification([FromBody] ResendVerificationRequest request)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var result = await _userService.ResendVerificationEmailAsync(request.Email);
+
+            if (result)
+            {
+                return Ok(new
+                {
+                    success = true,
+                    message = "Verification email sent. Please check your inbox."
+                });
+            }
+
+            return BadRequest(new
+            {
+                success = false,
+                message = "Unable to send verification email. Email might already be verified or doesn't exist."
+            });
+        }
+
+        /// <summary>
+        /// Request password reset
+        /// </summary>
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
         {
             if (!ModelState.IsValid)
-            {
                 return BadRequest(ModelState);
-            }
 
             await _userService.ForgotPasswordAsync(request.Email);
 
-            // Always return success even if email doesn't exist (security best practice)
-            return Ok(new { message = "If your email is registered, you will receive a password reset link" });
+            // Always return success to prevent email enumeration
+            return Ok(new
+            {
+                success = true,
+                message = "If your email is registered and verified, you will receive a password reset link."
+            });
         }
 
         /// <summary>
-        /// Reset password using token
+        /// Reset password with token
         /// </summary>
-        /// <param name="request">Reset password details</param>
-        /// <returns>Result message</returns>
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
         {
             if (!ModelState.IsValid)
-            {
                 return BadRequest(ModelState);
-            }
 
             var result = await _userService.ResetPasswordAsync(request);
 
-            if (!result)
+            if (result)
             {
-                return BadRequest(new { message = "Invalid or expired reset token" });
+                return Ok(new
+                {
+                    success = true,
+                    message = "Password reset successful. You can now login with your new password."
+                });
             }
 
-            return Ok(new { message = "Password reset successfully. Please login with your new password." });
+            return BadRequest(new
+            {
+                success = false,
+                message = "Invalid or expired reset token. Please request a new password reset."
+            });
         }
 
         /// <summary>
-        /// Verify email address
+        /// Refresh JWT token
         /// </summary>
-        /// <param name="request">Verification details</param>
-        /// <returns>Result message</returns>
-        [HttpPost("verify-email")]
-        public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailRequest request)
+        [HttpPost("refresh-token")]
+        public async Task<IActionResult> RefreshToken([FromBody] string refreshToken)
         {
-            if (!ModelState.IsValid)
+            if (string.IsNullOrEmpty(refreshToken))
+                return BadRequest(new { message = "Refresh token is required" });
+
+            try
             {
-                return BadRequest(ModelState);
+                var result = await _userService.RefreshTokenAsync(refreshToken);
+
+                if (!result.Success)
+                    return Unauthorized(result);
+
+                return Ok(result);
             }
-
-            // Add email verification logic here
-            // This would typically check a token stored in cache or database
-
-            return Ok(new { message = "Email verified successfully" });
+            catch (Exception)
+            {
+                return Unauthorized(new { message = "Invalid refresh token" });
+            }
         }
 
-        // Helper method to set refresh token as HTTP-only cookie
-        private void SetRefreshTokenCookie(string refreshToken)
+        /// <summary>
+        /// Get current user profile (Protected)
+        /// </summary>
+        [Authorize]
+        [HttpGet("me")]
+        public async Task<IActionResult> GetCurrentUser()
         {
-            var cookieOptions = new CookieOptions
-            {
-                HttpOnly = true,        // Prevents JavaScript access (security)
-                Secure = true,          // Only send over HTTPS
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTime.UtcNow.AddDays(7),
-                Path = "/"
-            };
+            var userId = User.FindFirst("userId")?.Value;
 
-            Response.Cookies.Append("refreshToken", refreshToken, cookieOptions);
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { message = "User not found" });
+
+            var user = await _userService.GetUserByIdAsync(Guid.Parse(userId));
+
+            if (user == null)
+                return NotFound(new { message = "User not found" });
+
+            return Ok(new
+            {
+                user.Id,
+                user.FullName,
+                user.Email,
+                user.Phone,
+                user.IsEmailVerified,
+                user.IsActive,
+                user.Role,
+                user.CreatedAt,
+                user.LastLoginAt
+            });
         }
 
-        // Helper method to collect model state errors
-        private object ModelStateErrors()
+        /// <summary>
+        /// Logout user (Protected)
+        /// </summary>
+        [Authorize]
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout()
         {
-            var errors = new System.Collections.Generic.Dictionary<string, string[]>();
-            foreach (var key in ModelState.Keys)
+            var userId = User.FindFirst("userId")?.Value;
+
+            if (!string.IsNullOrEmpty(userId))
             {
-                var state = ModelState[key];
-                if (state != null && state.Errors.Count > 0)
-                {
-                    errors[key] = state.Errors.Select(e => e.ErrorMessage).ToArray();
-                }
+                await _userService.LogoutAsync(Guid.Parse(userId));
             }
-            return errors;
+
+            return Ok(new { message = "Logged out successfully" });
+        }
+
+        /// <summary>
+        /// Check if user is authenticated (Protected)
+        /// </summary>
+        [Authorize]
+        [HttpGet("check-auth")]
+        public IActionResult CheckAuth()
+        {
+            var userId = User.FindFirst("userId")?.Value;
+            var email = User.FindFirst(ClaimTypes.Email)?.Value;
+            var name = User.FindFirst(ClaimTypes.Name)?.Value;
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            var isEmailVerified = User.FindFirst("isEmailVerified")?.Value;
+
+            return Ok(new
+            {
+                isAuthenticated = true,
+                userId,
+                email,
+                name,
+                role,
+                isEmailVerified = bool.Parse(isEmailVerified ?? "false")
+            });
         }
     }
 }
