@@ -33,18 +33,23 @@ public class User
 
     public bool IsPhoneVerified { get; set; } = false;
 
+    // Email verification fields
+    public string? EmailVerificationToken { get; set; }
+    public DateTime? EmailVerificationTokenExpiry { get; set; }
+    public DateTime? EmailVerifiedAt { get; set; }
+
+    // Password reset fields
+    public string? PasswordResetToken { get; set; }
+    public DateTime? PasswordResetTokenExpiry { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
     public DateTime? UpdatedAt { get; set; }
-
     public DateTime? LastLoginAt { get; set; }
 
     public string? ProfilePictureUrl { get; set; }
-
     public string? Bio { get; set; }
 
     // Navigation properties
     public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
-
     public virtual ICollection<UserAddress> Addresses { get; set; } = new List<UserAddress>();
 }

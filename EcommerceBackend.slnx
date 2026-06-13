@@ -1,6 +1,8 @@
 <Solution>
+  <Project Path="EcommerceApp.API/EcommerceApp.API.csproj" Id="676aca05-5401-47a1-9f8e-c8d45caf70a4" />
   <Project Path="EcommerceApp.Application/EcommerceApp.Application.csproj" />
   <Project Path="EcommerceApp.Domain/EcommerceApp.Domain.csproj" />
-  <Project Path="EcommerceApp.Infrastructure/EcommerceApp.Infrastructure.csproj" />
-  <Project Path="EcommerceBackend.API/EcommerceApp.API.csproj" />
+  <Project Path="EcommerceApp.Infrastructure/EcommerceApp.Infrastructure.csproj">
+    <BuildDependency Project="EcommerceApp.Domain/EcommerceApp.Domain.csproj" />
+  </Project>
 </Solution>

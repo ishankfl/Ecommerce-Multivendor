@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace EcommerceApp.Infrastructure.Repositories
 {
-    internal class UserRepositories : IUserRepository
+    public class UserRepositories : IUserRepository
     {
         private readonly ApplicationDbContext _dbContext;
         public UserRepositories(ApplicationDbContext dbContext)

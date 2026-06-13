@@ -25,4 +25,8 @@
     <ProjectReference Include="..\EcommerceApp.Application\EcommerceApp.Application.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="NewFolder\" />
+  </ItemGroup>
+
 </Project>
