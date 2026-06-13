@@ -1,14 +1,20 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace EcommerceApp.Application.DTOs.Auth
-{
-    public class VerifyEmailRequest
-    {
-        [Required(ErrorMessage = "Email is required")]
-        [EmailAddress(ErrorMessage = "Invalid email format")]
-        public string Email { get; set; } = string.Empty;
+namespace EcommerceApp.Application.DTOs.Auth;
 
-        [Required(ErrorMessage = "Verification token is required")]
-        public string Token { get; set; } = string.Empty;
-    }
+public class VerifyEmailRequest
+{
+    [Required]
+    [EmailAddress]
+    public string Email { get; set; } = string.Empty;
+
+    [Required]
+    public string Token { get; set; } = string.Empty;
+}
+
+public class ResendVerificationRequest
+{
+    [Required]
+    [EmailAddress]
+    public string Email { get; set; } = string.Empty;
 }
