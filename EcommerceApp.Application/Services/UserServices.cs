@@ -20,15 +20,18 @@ namespace EcommerceApp.Application.Services
         private readonly IUserRepository _userRepo;
         private readonly IConfiguration _config;
         private readonly IMemoryCache _cache;
+        private readonly IEmailService _emailService;
 
         public UserService(
             IUserRepository userRepo,
             IConfiguration config,
-            IMemoryCache cache)
+            IMemoryCache cache,
+            IEmailService emailService)
         {
             _userRepo = userRepo;
             _config = config;
             _cache = cache;
+            _emailService = emailService;
         }
 
         public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
@@ -41,6 +44,9 @@ namespace EcommerceApp.Application.Services
                     Success = false
                 };
 
+            // Generate email verification token
+            var verificationToken = GenerateRandomToken();
+
             // Create new user
             var user = new User
             {
@@ -52,13 +58,40 @@ namespace EcommerceApp.Application.Services
                 Role = UserRole.User,
                 IsActive = true,
                 IsEmailVerified = false,
+                EmailVerificationToken = verificationToken,
+                EmailVerificationTokenExpiry = DateTime.UtcNow.AddHours(24),
                 CreatedAt = DateTime.UtcNow
             };
 
             await _userRepo.AddAsync(user);
             await _userRepo.SaveChangesAsync();
 
-            return await GenerateAuthResponse(user);
+            // Send welcome email and verification email (fire and forget)
+            var verificationLink = $"{_config["AppUrl"]}/api/auth/verify-email?email={user.Email}&token={verificationToken}";
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _emailService.SendWelcomeEmailAsync(user.Email, user.FullName);
+                    await _emailService.SendVerificationEmailAsync(user.Email, user.FullName, verificationLink);
+                }
+                catch (Exception ex)
+                {
+                    // Log error but don't break registration
+                    Console.WriteLine($"Failed to send email: {ex.Message}");
+                }
+            });
+
+            return new AuthResponse
+            {
+                Success = true,
+                Message = "Registration successful! Please check your email to verify your account.",
+                Email = user.Email,
+                FullName = user.FullName,
+                RequiresEmailVerification = true,
+                IsEmailVerified = false
+            };
         }
 
         public async Task<AuthResponse> LoginAsync(LoginRequest request)
@@ -98,8 +131,35 @@ namespace EcommerceApp.Application.Services
                 };
             }
 
+            // Check if email is verified
+            if (!user.IsEmailVerified)
+            {
+                // Check if verification token expired and resend if needed
+                if (user.EmailVerificationTokenExpiry < DateTime.UtcNow)
+                {
+                    // Generate new token
+                    user.EmailVerificationToken = GenerateRandomToken();
+                    user.EmailVerificationTokenExpiry = DateTime.UtcNow.AddHours(24);
+
+                    await _userRepo.SaveChangesAsync();
+
+                    // Send new verification email
+                    var verificationLink = $"{_config["AppUrl"]}/api/auth/verify-email?email={user.Email}&token={user.EmailVerificationToken}";
+                    _ = Task.Run(() => _emailService.SendVerificationEmailAsync(user.Email, user.FullName, verificationLink));
+                }
+
+                return new AuthResponse
+                {
+                    Success = false,
+                    Message = "Please verify your email address before logging in. A verification link has been sent to your email.",
+                    RequiresEmailVerification = true,
+                    Email = user.Email
+                };
+            }
+
             // Update last login
             user.LastLoginAt = DateTime.UtcNow;
+            user.UpdatedAt = DateTime.UtcNow;
             _userRepo.Update(user);
             await _userRepo.SaveChangesAsync();
 
@@ -141,41 +201,61 @@ namespace EcommerceApp.Application.Services
         public async Task<bool> ForgotPasswordAsync(string email)
         {
             var user = await _userRepo.GetByEmailAsync(email);
-            if (user == null) return false;
+
+            // Don't reveal if email exists for security
+            if (user == null)
+                return true;
+
+            // Only send reset email if email is verified
+            if (!user.IsEmailVerified)
+                return true;
 
             // Generate password reset token
-            var resetToken = Guid.NewGuid().ToString("N").Substring(0, 32);
+            var resetToken = GenerateRandomToken();
 
-            // Store token in cache with 15 minute expiry
-            _cache.Set($"password_reset_{email}", resetToken, TimeSpan.FromMinutes(15));
+            // Store token in user record (not just cache for persistence)
+            user.PasswordResetToken = resetToken;
+            user.PasswordResetTokenExpiry = DateTime.UtcNow.AddHours(1);
 
-            // In production: Send email with reset link containing the token
-            // For now, just return true
+            _userRepo.Update(user);
+            await _userRepo.SaveChangesAsync();
+
+            // Send password reset email
+            var resetLink = $"{_config["AppUrl"]}/reset-password?email={user.Email}&token={resetToken}";
+
+            await _emailService.SendPasswordResetEmailAsync(user.Email, user.FullName, resetLink);
+
             return true;
         }
 
         public async Task<bool> ResetPasswordAsync(ResetPasswordRequest request)
         {
-            // Verify reset token
-            if (!_cache.TryGetValue($"password_reset_{request.Email}", out string? storedToken) ||
-                storedToken != request.Token)
-            {
-                return false;
-            }
-
             // Get user
             var user = await _userRepo.GetByEmailAsync(request.Email);
-            if (user == null) return false;
+
+            if (user == null)
+                return false;
+
+            // Check if email is verified
+            if (!user.IsEmailVerified)
+                return false;
+
+            // Verify reset token
+            if (user.PasswordResetToken != request.Token)
+                return false;
+
+            // Check if token expired
+            if (user.PasswordResetTokenExpiry < DateTime.UtcNow)
+                return false;
 
             // Update password
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            user.PasswordResetToken = null;
+            user.PasswordResetTokenExpiry = null;
             user.UpdatedAt = DateTime.UtcNow;
 
             _userRepo.Update(user);
             await _userRepo.SaveChangesAsync();
-
-            // Remove reset token from cache
-            _cache.Remove($"password_reset_{request.Email}");
 
             return true;
         }
@@ -199,6 +279,10 @@ namespace EcommerceApp.Application.Services
                 // Check if user is active
                 if (!user.IsActive)
                     throw new Exception("Account is deactivated");
+
+                // Check if email is verified
+                if (!user.IsEmailVerified)
+                    throw new Exception("Email not verified");
 
                 // Generate new tokens
                 return await GenerateAuthResponse(user);
@@ -224,6 +308,62 @@ namespace EcommerceApp.Application.Services
             return await Task.FromResult(true);
         }
 
+        // NEW: Verify email with token
+        public async Task<bool> VerifyEmailAsync(string email, string token)
+        {
+            var user = await _userRepo.GetByEmailAsync(email);
+
+            if (user == null)
+                return false;
+
+            if (user.IsEmailVerified)
+                return false;
+
+            if (user.EmailVerificationToken != token)
+                return false;
+
+            if (user.EmailVerificationTokenExpiry < DateTime.UtcNow)
+                return false;
+
+            // Mark email as verified
+            user.IsEmailVerified = true;
+            user.EmailVerifiedAt = DateTime.UtcNow;
+            user.EmailVerificationToken = null;
+            user.EmailVerificationTokenExpiry = null;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            _userRepo.Update(user);
+            await _userRepo.SaveChangesAsync();
+
+            return true;
+        }
+
+        // NEW: Resend verification email
+        public async Task<bool> ResendVerificationEmailAsync(string email)
+        {
+            var user = await _userRepo.GetByEmailAsync(email);
+
+            if (user == null)
+                return false;
+
+            if (user.IsEmailVerified)
+                return false;
+
+            // Generate new verification token
+            user.EmailVerificationToken = GenerateRandomToken();
+            user.EmailVerificationTokenExpiry = DateTime.UtcNow.AddHours(24);
+
+            _userRepo.Update(user);
+            await _userRepo.SaveChangesAsync();
+
+            // Send verification email
+            var verificationLink = $"{_config["AppUrl"]}/api/auth/verify-email?email={user.Email}&token={user.EmailVerificationToken}";
+
+            await _emailService.SendVerificationEmailAsync(user.Email, user.FullName, verificationLink);
+
+            return true;
+        }
+
         // Generate JWT Token and Response
         private async Task<AuthResponse> GenerateAuthResponse(User user)
         {
@@ -238,6 +378,7 @@ namespace EcommerceApp.Application.Services
                 new Claim(ClaimTypes.Name, user.FullName),
                 new Claim(ClaimTypes.Role, user.Role.ToString()),
                 new Claim("isActive", user.IsActive.ToString()),
+                new Claim("isEmailVerified", user.IsEmailVerified.ToString()),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim(JwtRegisteredClaimNames.Iat,
                     new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds().ToString(),
@@ -273,6 +414,7 @@ namespace EcommerceApp.Application.Services
                 Role = user.Role.ToString(),
                 UserId = user.Id,
                 TokenExpiry = tokenDescriptor.Expires ?? DateTime.UtcNow.AddMinutes(60),
+                IsEmailVerified = user.IsEmailVerified,
                 Message = "Authentication successful"
             };
         }
@@ -304,6 +446,16 @@ namespace EcommerceApp.Application.Services
             }
 
             return principal;
+        }
+
+        // Helper method to generate random token
+        private string GenerateRandomToken()
+        {
+            return Convert.ToBase64String(Guid.NewGuid().ToByteArray())
+                .Replace("+", "")
+                .Replace("/", "")
+                .Replace("=", "")
+                .Substring(0, 32);
         }
     }
 }

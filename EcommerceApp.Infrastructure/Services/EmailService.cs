@@ -1,5 +1,7 @@
-﻿using System.Net;
+﻿using System;
+using System.Net;
 using System.Net.Mail;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using EcommerceApp.Application.DTOs.Email;
@@ -62,7 +64,7 @@ public class EmailService : IEmailService
         {
             To = email,
             ToName = fullName,
-            Subject = "Verify Your Email Address - EcommerceApp",
+            Subject = "Verify Your Email Address",
             Body = body,
             IsHtml = true
         };
@@ -78,7 +80,23 @@ public class EmailService : IEmailService
         {
             To = email,
             ToName = fullName,
-            Subject = "Reset Your Password - EcommerceApp",
+            Subject = "Reset Your Password",
+            Body = body,
+            IsHtml = true
+        };
+
+        return await SendEmailAsync(message);
+    }
+
+    public async Task<bool> SendWelcomeEmailAsync(string email, string fullName)
+    {
+        var body = EmailTemplateService.GetWelcomeEmailBody(fullName);
+
+        var message = new EmailMessage
+        {
+            To = email,
+            ToName = fullName,
+            Subject = "Welcome to EcommerceApp!",
             Body = body,
             IsHtml = true
         };
