@@ -77,5 +77,7 @@ namespace EcommerceApp.Application.DTOs.Auth
         /// User's last login time
         /// </summary>
         public DateTime? LastLoginAt { get; set; }
+
+        public bool RequiresEmailVerification { get; set; }
     }
 }
