@@ -1,9 +1,14 @@
-using System.Text;
+using EcommerceApp.Application.Interfaces.Repositories;
+using EcommerceApp.Application.Interfaces.Services;
+using EcommerceApp.Application.Services;
+using EcommerceApp.Infrastructure.Persistence;
+using EcommerceApp.Infrastructure.Repositories;
+using EcommerceApp.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using EcommerceApp.Infrastructure.Persistence;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +30,12 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 var jwtKey = builder.Configuration["Jwt:Key"]
              ?? "ThisIsAVeryStrongSecretKeyForJwtAuthentication123!";
 
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IUserRepository, UserRepositories>();
+
+builder.Services.AddScoped<IEmailService, EmailService>();
+
+builder.Services.AddMemoryCache();
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;

@@ -451,11 +451,7 @@ namespace EcommerceApp.Application.Services
         // Helper method to generate random token
         private string GenerateRandomToken()
         {
-            return Convert.ToBase64String(Guid.NewGuid().ToByteArray())
-                .Replace("+", "")
-                .Replace("/", "")
-                .Replace("=", "")
-                .Substring(0, 32);
+            return Guid.NewGuid().ToString("N");
         }
     }
 }
