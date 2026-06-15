@@ -67,7 +67,10 @@ namespace EcommerceApp.Application.Services
             await _userRepo.SaveChangesAsync();
 
             // Send welcome email and verification email (fire and forget)
-            var verificationLink = $"{_config["AppUrl"]}/api/auth/verify-email?email={user.Email}&token={verificationToken}";
+            var verificationLink = EmailLinkBuilder.BuildVerificationLink(
+                _config["AppUrl"],
+                user.Email,
+                verificationToken);
 
             _ = Task.Run(async () =>
             {
@@ -144,7 +147,10 @@ namespace EcommerceApp.Application.Services
                     await _userRepo.SaveChangesAsync();
 
                     // Send new verification email
-                    var verificationLink = $"{_config["AppUrl"]}/api/auth/verify-email?email={user.Email}&token={user.EmailVerificationToken}";
+                    var verificationLink = EmailLinkBuilder.BuildVerificationLink(
+                        _config["AppUrl"],
+                        user.Email,
+                        user.EmailVerificationToken);
                     _ = Task.Run(() => _emailService.SendVerificationEmailAsync(user.Email, user.FullName, verificationLink));
                 }
 
@@ -221,7 +227,10 @@ namespace EcommerceApp.Application.Services
             await _userRepo.SaveChangesAsync();
 
             // Send password reset email
-            var resetLink = $"{_config["AppUrl"]}/reset-password?email={user.Email}&token={resetToken}";
+            var resetLink = EmailLinkBuilder.BuildPasswordResetLink(
+                _config["AppUrl"],
+                user.Email,
+                resetToken);
 
             await _emailService.SendPasswordResetEmailAsync(user.Email, user.FullName, resetLink);
 
@@ -357,7 +366,10 @@ namespace EcommerceApp.Application.Services
             await _userRepo.SaveChangesAsync();
 
             // Send verification email
-            var verificationLink = $"{_config["AppUrl"]}/api/auth/verify-email?email={user.Email}&token={user.EmailVerificationToken}";
+            var verificationLink = EmailLinkBuilder.BuildVerificationLink(
+                _config["AppUrl"],
+                user.Email,
+                user.EmailVerificationToken);
 
             await _emailService.SendVerificationEmailAsync(user.Email, user.FullName, verificationLink);
 

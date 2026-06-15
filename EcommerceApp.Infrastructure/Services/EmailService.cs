@@ -24,15 +24,11 @@ public class EmailService : IEmailService
 
    public async Task<bool> SendEmailAsync(EmailMessage message)
 {
-    // Debugging: Printing details to console
-    Console.WriteLine("--- Email Sending Attempt ---");
-    Console.WriteLine($"SMTP Server: {_emailSettings.SmtpServer}");
-    Console.WriteLine($"SMTP Port: {_emailSettings.SmtpPort}");
-    Console.WriteLine($"Sender Email: {_emailSettings.SenderEmail}");
-    Console.WriteLine($"Sender Password: [HIDDEN - Check your config]"); // Keep hidden for safety
-    Console.WriteLine($"Receiver Email: {message.To}");
-    Console.WriteLine($"Receiver Name: {message.ToName}");
-    Console.WriteLine("-----------------------------");
+    if (string.IsNullOrWhiteSpace(message.To))
+    {
+        _logger.LogWarning("Email not sent because recipient address is empty.");
+        return false;
+    }
 
     try
     {
@@ -62,10 +58,6 @@ public class EmailService : IEmailService
     }
     catch (Exception ex)
     {
-        // Debugging: Print full exception to console
-        Console.WriteLine($"ERROR: {ex.Message}");
-        Console.WriteLine($"Stack Trace: {ex.StackTrace}");
-        
         _logger.LogError(ex, "Failed to send email to {Email}", message.To);
         return false;
     }
