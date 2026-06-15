@@ -1,6 +1,7 @@
 using EcommerceApp.Application.Interfaces.Repositories;
 using EcommerceApp.Application.Interfaces.Services;
 using EcommerceApp.Application.Services;
+using EcommerceApp.Domain.Configurations;
 using EcommerceApp.Infrastructure.Persistence;
 using EcommerceApp.Infrastructure.Repositories;
 using EcommerceApp.Infrastructure.Services;
@@ -23,6 +24,9 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
     options.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 30)));
 });
+// Bind the "EmailSettings" section from appsettings.json to your C# class
+builder.Services.Configure<EmailSettings>(
+    builder.Configuration.GetSection("EmailSettings"));
 
 // ==============================
 // JWT Authentication

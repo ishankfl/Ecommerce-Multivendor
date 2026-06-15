@@ -22,40 +22,54 @@ public class EmailService : IEmailService
         _logger = logger;
     }
 
-    public async Task<bool> SendEmailAsync(EmailMessage message)
+   public async Task<bool> SendEmailAsync(EmailMessage message)
+{
+    // Debugging: Printing details to console
+    Console.WriteLine("--- Email Sending Attempt ---");
+    Console.WriteLine($"SMTP Server: {_emailSettings.SmtpServer}");
+    Console.WriteLine($"SMTP Port: {_emailSettings.SmtpPort}");
+    Console.WriteLine($"Sender Email: {_emailSettings.SenderEmail}");
+    Console.WriteLine($"Sender Password: [HIDDEN - Check your config]"); // Keep hidden for safety
+    Console.WriteLine($"Receiver Email: {message.To}");
+    Console.WriteLine($"Receiver Name: {message.ToName}");
+    Console.WriteLine("-----------------------------");
+
+    try
     {
-        try
+        using var smtpClient = new SmtpClient(_emailSettings.SmtpServer, _emailSettings.SmtpPort)
         {
-            using var smtpClient = new SmtpClient(_emailSettings.SmtpServer, _emailSettings.SmtpPort)
-            {
-                EnableSsl = _emailSettings.EnableSsl,
-                UseDefaultCredentials = false,
-                Credentials = new NetworkCredential(_emailSettings.Username, _emailSettings.Password),
-                Timeout = _emailSettings.Timeout
-            };
+            EnableSsl = _emailSettings.EnableSsl,
+            UseDefaultCredentials = false,
+            Credentials = new NetworkCredential(_emailSettings.Username, _emailSettings.Password),
+            Timeout = _emailSettings.Timeout
+        };
 
-            using var mailMessage = new MailMessage
-            {
-                From = new MailAddress(_emailSettings.SenderEmail, _emailSettings.SenderName),
-                Subject = message.Subject,
-                Body = message.Body,
-                IsBodyHtml = message.IsHtml
-            };
-
-            mailMessage.To.Add(new MailAddress(message.To, message.ToName));
-
-            await smtpClient.SendMailAsync(mailMessage);
-
-            _logger.LogInformation("Email sent successfully to {Email}", message.To);
-            return true;
-        }
-        catch (Exception ex)
+        using var mailMessage = new MailMessage
         {
-            _logger.LogError(ex, "Failed to send email to {Email}", message.To);
-            return false;
-        }
+            From = new MailAddress(_emailSettings.SenderEmail, _emailSettings.SenderName),
+            Subject = message.Subject,
+            Body = message.Body,
+            IsBodyHtml = message.IsHtml
+        };
+
+        // This is where your code likely fails if message.To is invalid
+        mailMessage.To.Add(new MailAddress(message.To, message.ToName));
+
+        await smtpClient.SendMailAsync(mailMessage);
+
+        _logger.LogInformation("Email sent successfully to {Email}", message.To);
+        return true;
     }
-
+    catch (Exception ex)
+    {
+        // Debugging: Print full exception to console
+        Console.WriteLine($"ERROR: {ex.Message}");
+        Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+        
+        _logger.LogError(ex, "Failed to send email to {Email}", message.To);
+        return false;
+    }
+}
     public async Task<bool> SendVerificationEmailAsync(string email, string fullName, string verificationLink)
     {
         var body = EmailTemplateService.GetVerificationEmailBody(fullName, verificationLink);
