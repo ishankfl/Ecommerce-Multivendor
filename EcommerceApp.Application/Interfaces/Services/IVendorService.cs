@@ -4,6 +4,7 @@ namespace EcommerceApp.Application.Interfaces.Services;
 
 public interface IVendorService
 {
+    Task<VendorResponse> RegisterVendorAsync(VendorRegisterRequest request);
     Task<VendorResponse> ApplyVendorAsync(Guid userId, VendorApplicationRequest request);
     Task<VendorResponse> UploadDocumentAsync(Guid userId, VendorDocumentRequest request);
     Task<VendorDocumentResponse> GetDocumentAsync(Guid userId, Guid documentId);
@@ -15,3 +16,4 @@ public interface IVendorService
     Task<VendorResponse> ApproveVendorAsync(Guid adminId, VendorApprovalRequest request);
     Task<VendorResponse> RejectVendorAsync(Guid adminId, VendorRejectionRequest request);
 }
+

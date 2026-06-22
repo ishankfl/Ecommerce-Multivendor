@@ -19,6 +19,22 @@ public class VendorController : ControllerBase
         _vendorService = vendorService;
     }
 
+    [AllowAnonymous]
+    [HttpPost("register")]
+    public async Task<IActionResult> Register([FromBody] VendorRegisterRequest request)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        return await HandleAsync(async () =>
+        {
+            var vendor = await _vendorService.RegisterVendorAsync(request);
+            return Ok(ApiResponse<VendorResponse>.Ok(vendor, "Vendor registration submitted successfully"));
+        });
+    }
+
     [HttpPost("apply")]
     public async Task<IActionResult> Apply([FromBody] VendorApplicationRequest request)
     {

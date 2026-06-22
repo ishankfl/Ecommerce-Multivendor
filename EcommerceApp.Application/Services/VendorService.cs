@@ -1,8 +1,10 @@
 using EcommerceApp.Application.DTOs.Vendor;
 using EcommerceApp.Application.Interfaces.Repositories;
 using EcommerceApp.Application.Interfaces.Services;
+using EcommerceApp.Domain.Entities.Identity;
 using EcommerceApp.Domain.Entities.Vendor;
 using EcommerceApp.Domain.Enums;
+using Microsoft.Extensions.Configuration;
 using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
 
@@ -14,19 +16,80 @@ public class VendorService : IVendorService
     private readonly IVendorDocumentRepository _documentRepo;
     private readonly IUserRepository _userRepo;
     private readonly IFileStorageService _fileStorage;
+    private readonly IConfiguration _config;
+    private readonly IEmailService _emailService;
 
     public VendorService(
         IVendorRepository vendorRepo,
         IVendorDocumentRepository documentRepo,
         IUserRepository userRepo,
-        IFileStorageService fileStorage)
+        IFileStorageService fileStorage,
+        IConfiguration config,
+        IEmailService emailService)
     {
         _vendorRepo = vendorRepo;
         _documentRepo = documentRepo;
         _userRepo = userRepo;
         _fileStorage = fileStorage;
+        _config = config;
+        _emailService = emailService;
     }
 
+
+    public async Task<VendorResponse> RegisterVendorAsync(VendorRegisterRequest request)
+    {
+        var email = request.Email.Trim().ToLowerInvariant();
+        var shopName = request.ShopName.Trim();
+
+        if (await _userRepo.ExistsByEmailAsync(email))
+        {
+            throw new InvalidOperationException("Email already exists");
+        }
+
+        if (!await _vendorRepo.IsShopNameUniqueAsync(shopName))
+        {
+            throw new InvalidOperationException("Shop name is already taken");
+        }
+
+        var verificationToken = GenerateRandomToken();
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            FullName = request.FullName.Trim(),
+            Email = email,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+            Phone = request.Phone?.Trim() ?? string.Empty,
+            Role = UserRole.User,
+            IsActive = true,
+            IsEmailVerified = false,
+            EmailVerificationToken = verificationToken,
+            EmailVerificationTokenExpiry = DateTime.UtcNow.AddHours(24),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var vendor = new Vendor
+        {
+            UserId = user.Id,
+            ShopName = shopName,
+            ShopSlug = await GenerateUniqueSlugAsync(shopName),
+            Description = request.Description.Trim(),
+            PhoneNumber = request.Phone?.Trim(),
+            Email = email,
+            PANNumber = request.PANNumber,
+            VATNumber = request.VATNumber,
+            RegistrationNumber = request.RegistrationNumber,
+            Status = VendorStatus.Pending,
+            IsApproved = false
+        };
+
+        await _userRepo.AddAsync(user);
+        await _vendorRepo.AddAsync(vendor);
+        await _vendorRepo.SaveChangesAsync();
+
+        SendVerificationEmails(user, verificationToken);
+
+        return MapToResponse(vendor);
+    }
     public async Task<VendorResponse> ApplyVendorAsync(Guid userId, VendorApplicationRequest request)
     {
         var user = await _userRepo.GetByIdAsync(userId) ?? throw new KeyNotFoundException("User not found");
@@ -234,6 +297,29 @@ public class VendorService : IVendorService
         return string.IsNullOrWhiteSpace(slug) ? Guid.NewGuid().ToString("N")[..8] : slug;
     }
 
+
+    private void SendVerificationEmails(User user, string verificationToken)
+    {
+        var verificationLink = EmailLinkBuilder.BuildVerificationLink(
+            _config["AppUrl"],
+            user.Email,
+            verificationToken);
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _emailService.SendWelcomeEmailAsync(user.Email, user.FullName);
+                await _emailService.SendVerificationEmailAsync(user.Email, user.FullName, verificationLink);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to send email: {ex.Message}");
+            }
+        });
+    }
+
+    private static string GenerateRandomToken() => Guid.NewGuid().ToString("N");
     private static VendorResponse MapToResponse(Vendor vendor) => new()
     {
         Id = vendor.Id,
@@ -262,3 +348,4 @@ public class VendorService : IVendorService
         UploadedAt = document.CreatedAt
     };
 }
+
