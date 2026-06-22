@@ -59,12 +59,13 @@ public class VendorService : IVendorService
             Email = email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
             Phone = request.Phone?.Trim() ?? string.Empty,
-            Role = UserRole.User,
+            Role = UserRole.Seller,
             IsActive = true,
             IsEmailVerified = false,
             EmailVerificationToken = verificationToken,
             EmailVerificationTokenExpiry = DateTime.UtcNow.AddHours(24),
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+
         };
 
         var vendor = new Vendor
