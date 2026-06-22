@@ -1,4 +1,4 @@
-﻿using EcommerceApp.Application.DTOs.Auth;
+using EcommerceApp.Application.DTOs.Auth;
 using EcommerceApp.Domain.Entities.Identity;
 
 namespace EcommerceApp.Application.Interfaces.Services
@@ -24,5 +24,10 @@ namespace EcommerceApp.Application.Interfaces.Services
         // Token Management
         Task<AuthResponse> RefreshTokenAsync(string refreshToken);
         Task<bool> LogoutAsync(Guid userId);
+
+        // Profile & Password Management
+        Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordRequest request);
+        Task<bool> UpdateProfileAsync(Guid userId, UpdateUserProfileRequest request);
+        Task<object?> GetUserProfileWithDetailsAsync(Guid userId);
     }
 }

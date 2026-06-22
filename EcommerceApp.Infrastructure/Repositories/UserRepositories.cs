@@ -1,4 +1,4 @@
-﻿using EcommerceApp.Application.Interfaces.Repositories;
+using EcommerceApp.Application.Interfaces.Repositories;
 using EcommerceApp.Domain.Entities.Identity;
 using EcommerceApp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -64,6 +64,21 @@ namespace EcommerceApp.Infrastructure.Repositories
         {
             return await _dbContext.Users
                 .Include(x => x.Addresses)
+                .FirstOrDefaultAsync(x => x.Id == userId);
+        }
+
+        public async Task<User?> GetUserByRefreshTokenAsync(string refreshToken)
+        {
+            return await _dbContext.Users
+                .Include(x => x.RefreshTokens)
+                .FirstOrDefaultAsync(u => u.RefreshTokens.Any(t => t.Token == refreshToken));
+        }
+
+        public async Task<User?> GetUserWithDetailsAsync(Guid userId)
+        {
+            return await _dbContext.Users
+                .Include(x => x.Addresses)
+                .Include(x => x.Vendor)
                 .FirstOrDefaultAsync(x => x.Id == userId);
         }
 

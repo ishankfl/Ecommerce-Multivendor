@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -273,17 +273,16 @@ namespace EcommerceApp.Application.Services
         {
             try
             {
-                // Get principal from expired token
-                var principal = GetPrincipalFromExpiredToken(refreshToken);
-
-                var userIdClaim = principal.FindFirst("userId")?.Value;
-                if (string.IsNullOrEmpty(userIdClaim))
-                    throw new Exception("Invalid token");
-
-                // Get user
-                var user = await _userRepo.GetByIdAsync(Guid.Parse(userIdClaim));
+                // Find user by refresh token
+                var user = await _userRepo.GetUserByRefreshTokenAsync(refreshToken);
                 if (user == null)
-                    throw new Exception("User not found");
+                    throw new Exception("Invalid refresh token");
+
+                var tokenEntity = user.RefreshTokens.FirstOrDefault(t => t.Token == refreshToken);
+                if (tokenEntity == null || tokenEntity.IsRevoked || tokenEntity.IsUsed || tokenEntity.ExpiryDate < DateTime.UtcNow)
+                {
+                    throw new Exception("Refresh token is expired, revoked, or already used");
+                }
 
                 // Check if user is active
                 if (!user.IsActive)
@@ -292,6 +291,10 @@ namespace EcommerceApp.Application.Services
                 // Check if email is verified
                 if (!user.IsEmailVerified)
                     throw new Exception("Email not verified");
+
+                // Mark current token as used/revoked
+                tokenEntity.IsUsed = true;
+                tokenEntity.RevokedAt = DateTime.UtcNow;
 
                 // Generate new tokens
                 return await GenerateAuthResponse(user);
@@ -311,10 +314,20 @@ namespace EcommerceApp.Application.Services
             // Clear user from cache
             _cache.Remove($"user_{userId}");
 
-            // In production: Also revoke refresh tokens from database
-            // await _refreshTokenRepo.RevokeAllUserTokensAsync(userId);
+            // Revoke all refresh tokens in database
+            var user = await _userRepo.GetUserWithRefreshTokensAsync(userId);
+            if (user != null)
+            {
+                foreach (var token in user.RefreshTokens.Where(t => !t.IsRevoked && !t.IsUsed))
+                {
+                    token.IsRevoked = true;
+                    token.RevokedAt = DateTime.UtcNow;
+                }
+                _userRepo.Update(user);
+                await _userRepo.SaveChangesAsync();
+            }
 
-            return await Task.FromResult(true);
+            return true;
         }
 
         // NEW: Verify email with token
@@ -382,6 +395,10 @@ namespace EcommerceApp.Application.Services
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.UTF8.GetBytes(_config["JWT:Secret"] ?? "your-super-secret-key-minimum-32-characters-long");
 
+            // Check if user has a vendor profile and fetch it if details exist
+            var userWithDetails = await _userRepo.GetUserWithDetailsAsync(user.Id);
+            var vendor = userWithDetails?.Vendor;
+
             // Create claims
             var claims = new List<Claim>
             {
@@ -396,6 +413,13 @@ namespace EcommerceApp.Application.Services
                     new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds().ToString(),
                     ClaimValueTypes.Integer64)
             };
+
+            if (vendor != null)
+            {
+                claims.Add(new Claim("vendorId", vendor.Id.ToString()));
+                claims.Add(new Claim("vendorStatus", vendor.Status.ToString()));
+                claims.Add(new Claim("isVendorApproved", vendor.IsApproved.ToString()));
+            }
 
             // Create token descriptor
             var tokenDescriptor = new SecurityTokenDescriptor
@@ -413,14 +437,26 @@ namespace EcommerceApp.Application.Services
             var token = tokenHandler.CreateToken(tokenDescriptor);
             var tokenString = tokenHandler.WriteToken(token);
 
-            // Generate refresh token (in production, save to database)
-            var refreshToken = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
+            // Generate refresh token and save to database
+            var refreshTokenString = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
+            var refreshTokenEntity = new RefreshToken
+            {
+                Token = refreshTokenString,
+                UserId = user.Id,
+                ExpiryDate = DateTime.UtcNow.AddDays(7),
+                CreatedAt = DateTime.UtcNow,
+                IsRevoked = false,
+                IsUsed = false
+            };
+            user.RefreshTokens.Add(refreshTokenEntity);
+            _userRepo.Update(user);
+            await _userRepo.SaveChangesAsync();
 
             return new AuthResponse
             {
                 Success = true,
                 Token = tokenString,
-                RefreshToken = refreshToken,
+                RefreshToken = refreshTokenString,
                 Email = user.Email,
                 FullName = user.FullName,
                 Role = user.Role.ToString(),
@@ -464,6 +500,103 @@ namespace EcommerceApp.Application.Services
         private string GenerateRandomToken()
         {
             return Guid.NewGuid().ToString("N");
+        }
+
+        public async Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordRequest request)
+        {
+            var user = await _userRepo.GetByIdAsync(userId);
+            if (user == null) return false;
+
+            if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.PasswordHash))
+                return false;
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            user.UpdatedAt = DateTime.UtcNow;
+            
+            // Revoke all refresh tokens (logout from other devices on password change!)
+            var userWithTokens = await _userRepo.GetUserWithRefreshTokensAsync(userId);
+            if (userWithTokens != null)
+            {
+                foreach (var token in userWithTokens.RefreshTokens.Where(t => !t.IsRevoked && !t.IsUsed))
+                {
+                    token.IsRevoked = true;
+                    token.RevokedAt = DateTime.UtcNow;
+                }
+                _userRepo.Update(userWithTokens);
+            }
+            else
+            {
+                _userRepo.Update(user);
+            }
+
+            await _userRepo.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> UpdateProfileAsync(Guid userId, UpdateUserProfileRequest request)
+        {
+            var user = await _userRepo.GetByIdAsync(userId);
+            if (user == null) return false;
+
+            user.FullName = request.FullName;
+            user.Phone = request.Phone ?? string.Empty;
+            user.Bio = request.Bio;
+            user.ProfilePictureUrl = request.ProfilePictureUrl;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            _userRepo.Update(user);
+            await _userRepo.SaveChangesAsync();
+
+            // Clear cache
+            _cache.Remove($"user_{userId}");
+            return true;
+        }
+
+        public async Task<object?> GetUserProfileWithDetailsAsync(Guid userId)
+        {
+            var user = await _userRepo.GetUserWithDetailsAsync(userId);
+            if (user == null) return null;
+
+            return new
+            {
+                user.Id,
+                user.FullName,
+                user.Email,
+                user.Phone,
+                user.Role,
+                user.IsActive,
+                user.IsEmailVerified,
+                user.ProfilePictureUrl,
+                user.Bio,
+                user.CreatedAt,
+                user.LastLoginAt,
+                Addresses = user.Addresses.Select(a => new
+                {
+                    a.Id,
+                    a.AddressLine1,
+                    a.AddressLine2,
+                    a.City,
+                    a.State,
+                    a.Country,
+                    a.PostalCode,
+                    a.Landmark,
+                    a.PhoneNumber,
+                    a.RecipientName,
+                    a.IsDefault,
+                    a.AddressType
+                }).ToList(),
+                Vendor = user.Vendor != null ? new
+                {
+                    user.Vendor.Id,
+                    user.Vendor.ShopName,
+                    user.Vendor.ShopSlug,
+                    user.Vendor.Description,
+                    user.Vendor.LogoUrl,
+                    user.Vendor.Status,
+                    user.Vendor.IsApproved,
+                    user.Vendor.ApprovedAt
+                } : null
+            };
         }
     }
 }

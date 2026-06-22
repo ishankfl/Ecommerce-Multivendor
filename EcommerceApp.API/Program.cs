@@ -13,10 +13,8 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add Controllers
 builder.Services.AddControllers();
 
-// Database Configuration
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
@@ -24,20 +22,20 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
     options.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 30)));
 });
-// Bind the "EmailSettings" section from appsettings.json to your C# class
-builder.Services.Configure<EmailSettings>(
-    builder.Configuration.GetSection("EmailSettings"));
 
-// ==============================
-// JWT Authentication
-// ==============================
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+
 var jwtKey = builder.Configuration["Jwt:Key"]
+             ?? builder.Configuration["JWT:Secret"]
              ?? "ThisIsAVeryStrongSecretKeyForJwtAuthentication123!";
 
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IVendorService, VendorService>();
 builder.Services.AddScoped<IUserRepository, UserRepositories>();
-
+builder.Services.AddScoped<IVendorRepository, VendorRepository>();
+builder.Services.AddScoped<IVendorDocumentRepository, VendorDocumentRepository>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 
 builder.Services.AddMemoryCache();
 builder.Services.AddAuthentication(options =>
@@ -49,33 +47,21 @@ builder.Services.AddAuthentication(options =>
 {
     options.RequireHttpsMetadata = false;
     options.SaveToken = true;
-
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(jwtKey)
-        ),
-
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
         ValidateIssuer = true,
         ValidateAudience = true,
-
-        ValidIssuer = builder.Configuration["Jwt:Issuer"],
-        ValidAudience = builder.Configuration["Jwt:Audience"],
-
+        ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? builder.Configuration["JWT:Issuer"],
+        ValidAudience = builder.Configuration["Jwt:Audience"] ?? builder.Configuration["JWT:Audience"],
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
     };
 });
 
-// Authorization
 builder.Services.AddAuthorization();
-
-// ==============================
-// Swagger Configuration
-// ==============================
 builder.Services.AddEndpointsApiExplorer();
-
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
@@ -112,24 +98,15 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-// ==============================
-// Middleware Pipeline
-// ==============================
-
-// Swagger
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
+app.UseStaticFiles();
 app.UseRouting();
-
-// Authentication must come before Authorization
 app.UseAuthentication();
 app.UseAuthorization();
-
-// Map Controllers
 app.MapControllers();
-
 app.Run();

@@ -1,12 +1,12 @@
-﻿using EcommerceApp.Domain.Enums;
+using EcommerceApp.Domain.Entities.Common;
+using EcommerceApp.Domain.Entities.Vendor;
+using EcommerceApp.Domain.Enums;
 using System.ComponentModel.DataAnnotations;
 
 namespace EcommerceApp.Domain.Entities.Identity;
 
-public class User
+public class User : BaseEntity
 {
-    [Key]
-    public Guid Id { get; set; } = Guid.NewGuid();
 
     [Required]
     [MaxLength(100)]
@@ -33,23 +33,20 @@ public class User
 
     public bool IsPhoneVerified { get; set; } = false;
 
-    // Email verification fields
     public string? EmailVerificationToken { get; set; }
     public DateTime? EmailVerificationTokenExpiry { get; set; }
     public DateTime? EmailVerifiedAt { get; set; }
 
-    // Password reset fields
     public string? PasswordResetToken { get; set; }
     public DateTime? PasswordResetTokenExpiry { get; set; }
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime? UpdatedAt { get; set; }
     public DateTime? LastLoginAt { get; set; }
 
     public string? ProfilePictureUrl { get; set; }
     public string? Bio { get; set; }
 
-    // Navigation properties
     public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
     public virtual ICollection<UserAddress> Addresses { get; set; } = new List<UserAddress>();
+    public virtual global::EcommerceApp.Domain.Entities.Vendor.Vendor? Vendor { get; set; }
 }
+

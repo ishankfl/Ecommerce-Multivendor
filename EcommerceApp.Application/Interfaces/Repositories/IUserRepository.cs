@@ -1,4 +1,4 @@
-﻿using EcommerceApp.Domain.Entities.Identity;
+using EcommerceApp.Domain.Entities.Identity;
 
 namespace EcommerceApp.Application.Interfaces.Repositories;
 
@@ -16,4 +16,6 @@ public interface IUserRepository
 
     Task<User?> GetUserWithRefreshTokensAsync(Guid userId);
     Task<User?> GetUserWithAddressesAsync(Guid userId);
+    Task<User?> GetUserByRefreshTokenAsync(string refreshToken);
+    Task<User?> GetUserWithDetailsAsync(Guid userId);
 }
