@@ -11,6 +11,7 @@ public interface IUserRepository
     Task AddAsync(User user);
     void Update(User user);
     void Remove(User user);
+    Task AddRefreshTokenAsync(RefreshToken refreshToken);
 
     Task<int> SaveChangesAsync();
 

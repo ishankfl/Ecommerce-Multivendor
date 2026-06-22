@@ -49,6 +49,11 @@ namespace EcommerceApp.Infrastructure.Repositories
             _dbContext.Users.Update(user);
         }
 
+        public async Task AddRefreshTokenAsync(RefreshToken refreshToken)
+        {
+            await _dbContext.RefreshTokens.AddAsync(refreshToken);
+        }
+
         public async Task<int> SaveChangesAsync()
         {
             return await _dbContext.SaveChangesAsync();
