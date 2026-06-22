@@ -449,7 +449,6 @@ namespace EcommerceApp.Application.Services
                 IsUsed = false
             };
             user.RefreshTokens.Add(refreshTokenEntity);
-            _userRepo.Update(user);
             await _userRepo.SaveChangesAsync();
 
             return new AuthResponse
