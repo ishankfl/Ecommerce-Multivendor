@@ -13,7 +13,32 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var myReactAppPolicy = "_myReactAppPolicy";
+
+// 2. Add CORS services and configure the policy
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(name: myReactAppPolicy,
+        policy =>
+        {
+            policy.WithOrigins("http://localhost:5173") // Match your exact frontend URL
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        });
+});
+
 builder.Services.AddControllers();
+
+//builder.Services.AddCors(options =>
+//{
+//    options.AddPolicy("AllowAll", policy =>
+//    {
+//        policy.WithOrigins("http://localhost:5173")
+//              .AllowAnyHeader()
+//              .AllowAnyMethod()
+//              .AllowCredentials();
+//    });
+//});
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
@@ -106,6 +131,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseStaticFiles();
 app.UseRouting();
+//app.UseCors("AllowAll");
+app.UseCors(myReactAppPolicy);
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
