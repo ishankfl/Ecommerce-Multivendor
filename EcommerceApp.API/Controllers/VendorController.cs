@@ -132,6 +132,20 @@ public class VendorController : ControllerBase
         return parsedUserId;
     }
 
+    [HttpGet("documents")]
+    public async Task<IActionResult> GetDocuments([FromQuery] Guid? vendorId)
+    {
+        return await HandleAsync(async () =>
+        {
+            var id = vendorId ?? GetCurrentUserId();
+
+            var documents = await _vendorService.GetDocumentsAsync(id);
+
+            return Ok(ApiResponse<IReadOnlyList<VendorDocumentResponse>>
+                .Ok(documents));
+        });
+    }
+
     private async Task<IActionResult> HandleAsync(Func<Task<IActionResult>> action)
     {
         try
