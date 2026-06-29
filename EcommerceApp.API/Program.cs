@@ -123,6 +123,9 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+// Seed the database on startup
+await EcommerceApp.Infrastructure.Persistence.DataSeeder.SeedAsync(app.Services);
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
