@@ -12,3 +12,4 @@ public class VendorDocumentRequest
     [Required]
     public IFormFile File { get; set; } = null!;
 }
+                                                                                                                                                                                                                                                                                                                                                  

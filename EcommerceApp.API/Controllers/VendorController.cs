@@ -132,7 +132,7 @@ public class VendorController : ControllerBase
         return parsedUserId;
     }
 
-    [HttpGet("documents")]
+    [HttpGet("documents-by-vendor")]
     public async Task<IActionResult> GetDocuments([FromQuery] Guid? vendorId)
     {
         return await HandleAsync(async () =>

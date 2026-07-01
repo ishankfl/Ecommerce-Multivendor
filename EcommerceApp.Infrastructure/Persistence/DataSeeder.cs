@@ -10,16 +10,16 @@ namespace EcommerceApp.Infrastructure.Persistence;
 public static class DataSeeder
 {
     // Fixed GUIDs so re-running the seeder never creates duplicates
-    private static readonly Guid AdminUserId  = Guid.Parse("11111111-0000-0000-0000-000000000001");
+    private static readonly Guid AdminUserId = Guid.Parse("11111111-0000-0000-0000-000000000001");
     private static readonly Guid NormalUserId = Guid.Parse("22222222-0000-0000-0000-000000000002");
     private static readonly Guid VendorUserId = Guid.Parse("33333333-0000-0000-0000-000000000003");
-    private static readonly Guid VendorId     = Guid.Parse("44444444-0000-0000-0000-000000000004");
+    private static readonly Guid VendorId = Guid.Parse("44444444-0000-0000-0000-000000000004");
 
     public static async Task SeedAsync(IServiceProvider serviceProvider)
     {
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var logger  = scope.ServiceProvider.GetRequiredService<ILogger<ApplicationDbContext>>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<ApplicationDbContext>>();
 
         try
         {
@@ -45,16 +45,16 @@ public static class DataSeeder
         {
             var admin = new User
             {
-                Id                    = AdminUserId,
-                FullName              = "System Admin",
-                Email                 = "admin@ecommerce.com",
-                PasswordHash          = BCrypt.Net.BCrypt.HashPassword("Admin@1234"),
-                Phone                 = "0000000001",
-                Role                  = UserRole.Admin,
-                IsActive              = true,
-                IsEmailVerified       = true,
-                EmailVerifiedAt       = now,
-                CreatedAt             = now,
+                Id = AdminUserId,
+                FullName = "System Admin",
+                Email = "admin@ecommerce.com",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@1234"),
+                Phone = "0000000001",
+                Role = UserRole.Admin,
+                IsActive = true,
+                IsEmailVerified = true,
+                EmailVerifiedAt = now,
+                CreatedAt = now,
             };
 
             await context.Users.AddAsync(admin);
@@ -66,16 +66,16 @@ public static class DataSeeder
         {
             var normalUser = new User
             {
-                Id                    = NormalUserId,
-                FullName              = "Normal User",
-                Email                 = "user@ecommerce.com",
-                PasswordHash          = BCrypt.Net.BCrypt.HashPassword("User@1234"),
-                Phone                 = "0000000002",
-                Role                  = UserRole.User,
-                IsActive              = true,
-                IsEmailVerified       = true,
-                EmailVerifiedAt       = now,
-                CreatedAt             = now,
+                Id = NormalUserId,
+                FullName = "Normal User",
+                Email = "user@ecommerce.com",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("User@1234"),
+                Phone = "0000000002",
+                Role = UserRole.User,
+                IsActive = true,
+                IsEmailVerified = true,
+                EmailVerifiedAt = now,
+                CreatedAt = now,
             };
 
             await context.Users.AddAsync(normalUser);
@@ -87,16 +87,16 @@ public static class DataSeeder
         {
             var vendorUser = new User
             {
-                Id                    = VendorUserId,
-                FullName              = "Seed Vendor",
-                Email                 = "vendor@ecommerce.com",
-                PasswordHash          = BCrypt.Net.BCrypt.HashPassword("Vendor@1234"),
-                Phone                 = "0000000003",
-                Role                  = UserRole.Seller,
-                IsActive              = true,
-                IsEmailVerified       = true,
-                EmailVerifiedAt       = now,
-                CreatedAt             = now,
+                Id = VendorUserId,
+                FullName = "Seed Vendor",
+                Email = "vendor@ecommerce.com",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Vendor@1234"),
+                Phone = "0000000003",
+                Role = UserRole.Seller,
+                IsActive = true,
+                IsEmailVerified = true,
+                EmailVerifiedAt = now,
+                CreatedAt = now,
             };
 
             await context.Users.AddAsync(vendorUser);
@@ -107,17 +107,17 @@ public static class DataSeeder
         {
             var vendor = new Vendor
             {
-                Id                 = VendorId,
-                UserId             = VendorUserId,
-                ShopName           = "Seed Shop",
-                ShopSlug           = "seed-shop",
-                Description        = "Seeded vendor shop for development.",
-                PhoneNumber        = "0000000003",
-                Email              = "vendor@ecommerce.com",
-                Status             = VendorStatus.Approved,
-                IsApproved         = true,
-                ApprovedAt         = now,
-                CreatedAt          = now,
+                Id = VendorId,
+                UserId = VendorUserId,
+                ShopName = "Seed Shop",
+                ShopSlug = "seed-shop",
+                Description = "Seeded vendor shop for development.",
+                PhoneNumber = "0000000003",
+                Email = "vendor@ecommerce.com",
+                Status = VendorStatus.Approved,
+                IsApproved = true,
+                ApprovedAt = now,
+                CreatedAt = now,
             };
 
             await context.Vendors.AddAsync(vendor);
