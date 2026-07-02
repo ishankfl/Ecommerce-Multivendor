@@ -12,8 +12,11 @@ public interface IVendorService
     Task<bool> DeleteDocumentAsync(Guid userId, Guid documentId);
     Task<VendorResponse> GetVendorProfileAsync(Guid userId);
     Task<bool> UpdateVendorProfileAsync(Guid userId, UpdateVendorRequest request);
+    Task<IReadOnlyList<VendorResponse>> GetAllVendorsAsync();
     Task<IReadOnlyList<VendorResponse>> GetPendingVendorsAsync();
     Task<IReadOnlyList<VendorResponse>> GetApprovedVendorsAsync();
+    Task<IReadOnlyList<VendorResponse>> GetRejectedVendorsAsync();
+    Task<VendorStatsResponse> GetVendorStatsAsync();
     Task<VendorResponse> ApproveVendorAsync(Guid adminId, VendorApprovalRequest request);
     Task<VendorResponse> RejectVendorAsync(Guid adminId, VendorRejectionRequest request);
 }

@@ -221,6 +221,12 @@ public class VendorService : IVendorService
         return true;
     }
 
+    public async Task<IReadOnlyList<VendorResponse>> GetAllVendorsAsync()
+    {
+        var vendors = await _vendorRepo.GetAllVendorsAsync();
+        return vendors.Select(MapToResponse).ToList();
+    }
+
     public async Task<IReadOnlyList<VendorResponse>> GetPendingVendorsAsync()
     {
         var vendors = await _vendorRepo.GetPendingVendorsAsync();
@@ -233,7 +239,27 @@ public class VendorService : IVendorService
         return vendors.Select(MapToResponse).ToList();
     }
 
+    public async Task<IReadOnlyList<VendorResponse>> GetRejectedVendorsAsync()
+    {
+        var vendors = await _vendorRepo.GetRejectedVendorsAsync();
+        return vendors.Select(MapToResponse).ToList();
+    }
 
+    public async Task<VendorStatsResponse> GetVendorStatsAsync()
+    {
+        var approved = await _vendorRepo.CountByStatusAsync(VendorStatus.Approved);
+        var pending  = await _vendorRepo.CountByStatusAsync(VendorStatus.Pending)
+                     + await _vendorRepo.CountByStatusAsync(VendorStatus.UnderReview);
+        var rejected = await _vendorRepo.CountByStatusAsync(VendorStatus.Rejected);
+
+        return new VendorStatsResponse
+        {
+            All      = approved + pending + rejected,
+            Approved = approved,
+            Pending  = pending,
+            Rejected = rejected
+        };
+    }
 
     public async Task<VendorResponse> ApproveVendorAsync(Guid adminId, VendorApprovalRequest request)
     {
