@@ -63,7 +63,8 @@ public class AdminController : ControllerBase
     public async Task<IActionResult> ApproveVendor([FromBody] VendorApprovalRequest request)
     {
         if (!ModelState.IsValid)
-            return BadRequest(ModelState);
+            return BadRequest(ApiResponse<object>.Fail(
+                string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage))));
 
         return await HandleAsync(async () =>
         {
@@ -77,7 +78,8 @@ public class AdminController : ControllerBase
     public async Task<IActionResult> RejectVendor([FromBody] VendorRejectionRequest request)
     {
         if (!ModelState.IsValid)
-            return BadRequest(ModelState);
+            return BadRequest(ApiResponse<object>.Fail(
+                string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage))));
 
         return await HandleAsync(async () =>
         {

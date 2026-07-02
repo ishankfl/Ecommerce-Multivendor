@@ -294,15 +294,15 @@ public class VendorService : IVendorService
         var vendor = await _vendorRepo.GetVendorWithDocumentsAsync(request.VendorId)
             ?? throw new KeyNotFoundException("Vendor not found");
 
-        if (vendor.Status == VendorStatus.Approved)
+        if (vendor.Status == VendorStatus.Rejected)
         {
-            throw new InvalidOperationException("Approved vendor cannot be rejected");
+            throw new InvalidOperationException("Vendor is already rejected");
         }
 
         vendor.Status = VendorStatus.Rejected;
         vendor.IsApproved = false;
         vendor.RejectedAt = DateTime.UtcNow;
-        vendor.RejectionReason = request.Reason;
+        vendor.RejectionReason = request.ResolvedReason;
 
         _vendorRepo.Update(vendor);
         await _vendorRepo.SaveChangesAsync();
