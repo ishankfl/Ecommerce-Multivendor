@@ -227,6 +227,14 @@ public class VendorService : IVendorService
         return vendors.Select(MapToResponse).ToList();
     }
 
+    public async Task<IReadOnlyList<VendorResponse>> GetApprovedVendorsAsync()
+    {
+        var vendors = await _vendorRepo.GetApprovedVendorsAsync();
+        return vendors.Select(MapToResponse).ToList();
+    }
+
+
+
     public async Task<VendorResponse> ApproveVendorAsync(Guid adminId, VendorApprovalRequest request)
     {
         var vendor = await _vendorRepo.GetVendorWithDocumentsAsync(request.VendorId)

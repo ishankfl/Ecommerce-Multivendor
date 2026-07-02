@@ -13,6 +13,7 @@ public interface IVendorService
     Task<VendorResponse> GetVendorProfileAsync(Guid userId);
     Task<bool> UpdateVendorProfileAsync(Guid userId, UpdateVendorRequest request);
     Task<IReadOnlyList<VendorResponse>> GetPendingVendorsAsync();
+    Task<IReadOnlyList<VendorResponse>> GetApprovedVendorsAsync();
     Task<VendorResponse> ApproveVendorAsync(Guid adminId, VendorApprovalRequest request);
     Task<VendorResponse> RejectVendorAsync(Guid adminId, VendorRejectionRequest request);
 }

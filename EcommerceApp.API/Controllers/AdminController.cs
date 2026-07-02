@@ -25,6 +25,13 @@ public class AdminController : ControllerBase
         return Ok(ApiResponse<IReadOnlyList<VendorResponse>>.Ok(vendors));
     }
 
+    [HttpGet("approved")]
+    public async Task<IActionResult> GetApprovedVendors()
+    {
+        var vendors = await _vendorService.GetApprovedVendorsAsync();
+        return Ok(ApiResponse<IReadOnlyList<VendorResponse>>.Ok(vendors));
+    }
+
     [HttpPost("approve")]
     public async Task<IActionResult> ApproveVendor([FromBody] VendorApprovalRequest request)
     {
